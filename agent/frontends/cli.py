@@ -19,6 +19,8 @@ from agent.config import Config
 from agent.brain import AgentBrain
 from agent.llm.openai_provider import OpenAIProvider
 from agent.memory.store import MemoryStore
+from agent.tools.registry import ToolRegistry
+from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
 
 
 async def run_cli(brain: AgentBrain):
@@ -90,8 +92,13 @@ def main():
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     memory = MemoryStore(db_path=db_path)
 
-    # Create the agent brain with memory
-    brain = AgentBrain(llm_provider=llm, memory=memory)
+    # Create and register tools
+    tools = ToolRegistry()
+    tools.register(CurrentTimeTool())
+    tools.register(CalculatorTool())
+
+    # Create the agent brain with memory and tools
+    brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)
 
     # Give this session a unique ID so messages are grouped together
     brain.session_id = MemoryStore.new_session_id()
