@@ -30,13 +30,16 @@ logger = logging.getLogger(__name__)
 # Maximum number of tool-call loops to prevent infinite loops
 MAX_TOOL_ROUNDS = 10
 
-SYSTEM_PROMPT = """You are a helpful personal AI assistant. You help the user \
+BASE_SYSTEM_PROMPT = """You are a helpful personal AI assistant. You help the user \
 manage their daily tasks including emails, web browsing, and calendar scheduling.
 
 You are friendly, concise, and proactive. When the user asks you to do something, \
 you take action using your available tools rather than just explaining how to do it.
 
-If you don't have the tools or information needed, say so honestly."""
+If you don't have the tools or information needed, say so honestly.
+
+If the user tells you their name, preferences, or important facts about themselves, \
+remember these for future conversations."""
 
 
 class AgentBrain:
@@ -51,9 +54,25 @@ class AgentBrain:
 
     def __init__(self, llm_provider: LLMProvider, memory=None, tools=None):
         self.llm = llm_provider
-        self.memory = memory        # Will be added in Phase 2
+        self.memory = memory        # MemoryStore for persistent memory
         self.tools = tools          # Will be added in Phase 3
-        self.conversation: list[dict] = []  # In-memory conversation for now
+        self.conversation: list[dict] = []  # Current session messages
+        self.session_id: str | None = None  # Set by frontend
+
+    def _build_system_prompt(self, preferences: dict[str, str]) -> str:
+        """
+        Build the system prompt, enriched with user preferences.
+
+        This is how the agent "knows" you — your preferences are injected
+        into the system prompt so the LLM sees them on every request.
+        """
+        prompt = BASE_SYSTEM_PROMPT
+
+        if preferences:
+            pref_lines = "\n".join(f"- {k}: {v}" for k, v in preferences.items())
+            prompt += f"\n\nHere is what you know about the user:\n{pref_lines}"
+
+        return prompt
 
     async def process(self, user_message: str, context: dict | None = None) -> str:
         """
@@ -62,42 +81,66 @@ class AgentBrain:
         This is the main entry point. Every frontend (CLI, Discord, etc.)
         calls this method with the user's message.
 
-        Args:
-            user_message: What the user said
-            context: Optional metadata (which frontend, user ID, etc.)
-
-        Returns:
-            The agent's text response
+        Now with memory:
+        1. Load conversation history and preferences from the database
+        2. Build an enriched system prompt with user preferences
+        3. Run the agent loop (LLM calls + tool calls)
+        4. Save the exchange to persistent memory
         """
-        # Step 1: Add the user's message to conversation history
+        frontend = (context or {}).get("frontend", "cli")
+
+        # Step 1: Load memory context (preferences + past conversation summaries)
+        system_prompt = BASE_SYSTEM_PROMPT
+        if self.memory:
+            memory_context = await self.memory.build_context(limit=20)
+
+            # If this is a fresh session, load recent history from the database
+            if not self.conversation and memory_context["messages"]:
+                self.conversation = memory_context["messages"]
+
+            # Inject summaries into context if available
+            if memory_context["summaries"]:
+                summary_text = "\n".join(memory_context["summaries"])
+                system_prompt = self._build_system_prompt(memory_context["preferences"])
+                system_prompt += f"\n\nPrevious conversation summaries:\n{summary_text}"
+            else:
+                system_prompt = self._build_system_prompt(memory_context["preferences"])
+
+        # Step 2: Add the user's message to conversation history
         self.conversation.append({"role": "user", "content": user_message})
 
-        # Step 2: Get tool definitions (if we have tools registered)
+        # Save user message to persistent memory
+        if self.memory and self.session_id:
+            await self.memory.save_message(
+                session_id=self.session_id,
+                role="user",
+                content=user_message,
+                frontend=frontend,
+            )
+
+        # Step 3: Get tool definitions (if we have tools registered)
         tool_definitions = None
         if self.tools:
             tool_definitions = self.tools.get_llm_schemas()
 
-        # Step 3-4: The agent loop — keep calling the LLM until we get a text reply
+        # Step 4: The agent loop — keep calling the LLM until we get a text reply
         rounds = 0
         while rounds < MAX_TOOL_ROUNDS:
             rounds += 1
 
             # Call the LLM
             response: LLMResponse = await self.llm.generate(
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=self.conversation,
                 tools=tool_definitions,
             )
 
             # If the LLM wants to use tools, execute them and loop back
             if response.has_tool_calls:
-                # Add the assistant's tool-calling message to history
-                # (OpenAI needs this to maintain the conversation flow)
                 self.conversation.append(
                     self._build_assistant_tool_call_message(response)
                 )
 
-                # Execute each tool and add results to history
                 for tool_call in response.tool_calls:
                     result = await self._execute_tool(tool_call)
                     self.conversation.append({
@@ -106,7 +149,6 @@ class AgentBrain:
                         "content": json.dumps(result),
                     })
 
-                # Loop back to step 3 — the LLM will see the tool results
                 continue
 
             # If the LLM gave a text reply, we're done
@@ -115,6 +157,16 @@ class AgentBrain:
                     "role": "assistant",
                     "content": response.text,
                 })
+
+                # Save assistant response to persistent memory
+                if self.memory and self.session_id:
+                    await self.memory.save_message(
+                        session_id=self.session_id,
+                        role="assistant",
+                        content=response.text,
+                        frontend=frontend,
+                    )
+
                 return response.text
 
         # Safety: if we hit the max rounds, return what we have

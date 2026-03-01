@@ -14,9 +14,11 @@ that all talk to the same brain.
 
 import asyncio
 import logging
+import os
 from agent.config import Config
 from agent.brain import AgentBrain
 from agent.llm.openai_provider import OpenAIProvider
+from agent.memory.store import MemoryStore
 
 
 async def run_cli(brain: AgentBrain):
@@ -83,8 +85,16 @@ def main():
     # Create the LLM provider
     llm = OpenAIProvider(api_key=config.openai_api_key)
 
-    # Create the agent brain
-    brain = AgentBrain(llm_provider=llm)
+    # Create persistent memory (ensures data/ directory exists)
+    db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "agent_memory.db")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    memory = MemoryStore(db_path=db_path)
+
+    # Create the agent brain with memory
+    brain = AgentBrain(llm_provider=llm, memory=memory)
+
+    # Give this session a unique ID so messages are grouped together
+    brain.session_id = MemoryStore.new_session_id()
 
     # Start the CLI
     asyncio.run(run_cli(brain))

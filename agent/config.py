@@ -24,6 +24,8 @@ class Config:
         # Agent settings
         self.default_llm = os.getenv("DEFAULT_LLM", "openai")
         self.log_level = os.getenv("LOG_LEVEL", "INFO")
+        self.db_path = os.getenv("DB_PATH", "data/agent_memory.db")
+        self.max_context_messages = int(os.getenv("MAX_CONTEXT_MESSAGES", "20"))
 
     def validate(self):
         """Check that required config values are present."""
