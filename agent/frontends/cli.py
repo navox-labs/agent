@@ -21,6 +21,7 @@ from agent.llm.openai_provider import OpenAIProvider
 from agent.memory.store import MemoryStore
 from agent.tools.registry import ToolRegistry
 from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
+from agent.tools.email_tool import EmailTool
 
 
 async def run_cli(brain: AgentBrain):
@@ -96,6 +97,17 @@ def main():
     tools = ToolRegistry()
     tools.register(CurrentTimeTool())
     tools.register(CalculatorTool())
+
+    # Register email tool only if credentials are configured
+    if config.email_username and config.email_password:
+        tools.register(EmailTool(
+            username=config.email_username,
+            password=config.email_password,
+            imap_host=config.imap_host,
+            imap_port=config.imap_port,
+            smtp_host=config.smtp_host,
+            smtp_port=config.smtp_port,
+        ))
 
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)

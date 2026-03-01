@@ -27,6 +27,14 @@ class Config:
         self.db_path = os.getenv("DB_PATH", "data/agent_memory.db")
         self.max_context_messages = int(os.getenv("MAX_CONTEXT_MESSAGES", "20"))
 
+        # Email settings (Gmail IMAP/SMTP)
+        self.email_username = os.getenv("EMAIL_USERNAME", "")
+        self.email_password = os.getenv("EMAIL_PASSWORD", "")
+        self.imap_host = os.getenv("IMAP_HOST", "imap.gmail.com")
+        self.imap_port = int(os.getenv("IMAP_PORT", "993"))
+        self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
+
     def validate(self):
         """Check that required config values are present."""
         missing = []
