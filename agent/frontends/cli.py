@@ -31,6 +31,8 @@ from agent.jobs.store import JobStore
 from agent.jobs.matcher import JobMatcher
 from agent.jobs.scanner import JobScanner
 from agent.jobs.linkedin_session import LinkedInSession
+from agent.jobs.outreach import OutreachManager
+from agent.tools.outreach_tool import OutreachTool
 
 
 async def run_cli(brain: AgentBrain):
@@ -163,6 +165,17 @@ def main():
         email_tool=email_tool,
     )
     tools.register(JobTool(scanner=scanner, job_store=job_store))
+
+    # Register outreach tool (draft, approve, send, track messages)
+    outreach_manager = OutreachManager(
+        job_store=job_store,
+        profile_store=profile_store,
+        llm_provider=llm,
+        email_tool=email_tool,
+        linkedin_session=linkedin_session,
+        notification_email=config.email_username,
+    )
+    tools.register(OutreachTool(outreach_manager=outreach_manager))
 
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)
