@@ -164,7 +164,9 @@ Return JSON format:
 
         score = round((matched_count / total) * 100)
 
-        # Cap: if missing > matched, never exceed 50%
+        # Cap: if missing > matched, never exceed 50%.
+        # Note: mathematically, when missing > matched, matched/total < 0.5
+        # so score is already ≤50. Kept for Navox parity as a safety net.
         if missing_count > matched_count:
             score = min(score, 50)
 

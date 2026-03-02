@@ -44,9 +44,3 @@ class LLMResponse:
         return len(self.tool_calls) > 0
 
 
-@dataclass
-class ToolResult:
-    """Result from executing a tool."""
-    success: bool
-    data: Any
-    error: str | None = None

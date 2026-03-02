@@ -84,6 +84,10 @@ class CalculatorTool(Tool):
 
     async def execute(self, expression: str = "", **kwargs) -> ToolResult:
         try:
+            # Guard against expensive expressions like "9**9**9**9**9"
+            if len(expression) > 100:
+                return ToolResult(success=False, data=None, error="Expression too long (max 100 characters)")
+
             # Only allow safe math characters
             allowed = set("0123456789+-*/.() ")
             if not all(c in allowed for c in expression):

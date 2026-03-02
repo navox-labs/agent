@@ -31,3 +31,6 @@ Thumbs.db
 # Playwright
 playwright-report/
 test-results/
+
+# Pytest
+.pytest_cache/
