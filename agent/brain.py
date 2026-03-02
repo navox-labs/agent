@@ -33,7 +33,8 @@ logger = logging.getLogger(__name__)
 MAX_TOOL_ROUNDS = 10
 
 BASE_SYSTEM_PROMPT = """You are a helpful personal AI assistant. You help the user \
-manage their daily tasks including emails, web browsing, and calendar scheduling.
+manage their daily tasks including emails, web browsing, calendar scheduling, \
+and job discovery.
 
 You are friendly, concise, and proactive. When the user asks you to do something, \
 you take action using your available tools rather than just explaining how to do it.
@@ -42,6 +43,19 @@ If you don't have the tools or information needed, say so honestly.
 
 If the user tells you their name, preferences, or important facts about themselves, \
 remember these for future conversations."""
+
+JOB_SEARCH_PROMPT = """
+When searching for jobs and managing outreach:
+- Use the user's profile to score relevance — mention the match score and key matching skills
+- Always mention the connection path if one exists (e.g., "Sarah Chen, 2nd degree on LinkedIn")
+- For high-relevance matches (score 70+), proactively suggest drafting outreach
+- Include job IDs so the user can reference specific listings
+- NEVER send outreach without explicit user approval — always show the draft first
+- Space out LinkedIn actions to avoid detection (the system handles this automatically)
+- Batch notifications — summarize multiple findings rather than reporting one at a time
+- When sharing the user's profile, prefer the Navox profileCard URL if available
+- Track the outreach pipeline: new → notified → drafting → approved → sent → responded
+"""
 
 
 class AgentBrain:
@@ -67,8 +81,13 @@ class AgentBrain:
 
         This is how the agent "knows" you — your preferences are injected
         into the system prompt so the LLM sees them on every request.
+        Job search guidance is added when job tools are registered.
         """
         prompt = BASE_SYSTEM_PROMPT
+
+        # Add job search guidance if job tools are available
+        if self.tools and "jobs" in self.tools:
+            prompt += JOB_SEARCH_PROMPT
 
         if preferences:
             pref_lines = "\n".join(f"- {k}: {v}" for k, v in preferences.items())
