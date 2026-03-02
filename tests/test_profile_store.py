@@ -19,9 +19,9 @@ async def test_has_profile_true_after_set(profile_store):
 
 
 async def test_set_and_get_card_url(profile_store):
-    await profile_store.set_profile_card_url("https://navox.tech/card/nahrin")
+    await profile_store.set_profile_card_url("https://navox.tech/card/jsmith")
     url = await profile_store.get_profile_card_url()
-    assert url == "https://navox.tech/card/nahrin"
+    assert url == "https://navox.tech/card/jsmith"
 
 
 async def test_job_preferences_json_roundtrip(profile_store):

@@ -62,7 +62,7 @@ class ProfileTool(Tool):
             ),
             ToolParameter(
                 "url", "string",
-                "Navox profileCard URL (e.g., navox.tech/card/nahrin) — used with 'set_profile' action",
+                "Navox profileCard URL (e.g., navox.tech/card/jsmith) — used with 'set_profile' action",
                 required=False,
             ),
             ToolParameter(

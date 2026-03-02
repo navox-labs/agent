@@ -9,7 +9,7 @@ The profile is the foundation of everything the agent does:
 - When sharing with connections, it sends YOUR Navox card or resume
 
 Profile sources:
-1. Navox profileCard URL (e.g., navox.tech/card/nahrin) — fetched via browser
+1. Navox profileCard URL (e.g., navox.tech/card/jsmith) — fetched via browser
 2. Resume PDF — text extracted locally
 3. Manual input — user tells the agent about themselves
 

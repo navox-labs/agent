@@ -1,3 +1,24 @@
+[project]
+name = "navox-agent"
+version = "0.1.0"
+description = "Autonomous AI agent that finds jobs, matches them to your Navox profile, and drafts outreach — while you sleep."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "Navox Labs"}]
+keywords = ["ai", "agent", "job-search", "autonomous", "gpt-4", "linkedin", "navox"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business",
+]
+
+[project.urls]
+Homepage = "https://navox.tech"
+Repository = "https://github.com/navox-labs/agent"
+Issues = "https://github.com/navox-labs/agent/issues"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

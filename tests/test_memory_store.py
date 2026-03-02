@@ -28,9 +28,9 @@ async def test_get_session_messages(memory_store):
 
 
 async def test_preference_set_and_get(memory_store):
-    await memory_store.set_preference("user_name", "Nahrin")
+    await memory_store.set_preference("user_name", "Alice")
     value = await memory_store.get_preference("user_name")
-    assert value == "Nahrin"
+    assert value == "Alice"
 
 
 async def test_preference_upsert(memory_store):

@@ -152,7 +152,7 @@ class MemoryStore:
         """
         Look up a learned preference.
 
-        Example: get_preference("user_name") -> "Nahrin"
+        Example: get_preference("user_name") -> "Alice"
         """
         conn = self._get_connection()
         try:

@@ -99,7 +99,7 @@ async def test_max_rounds_safety(mock_llm):
 def test_build_system_prompt_with_preferences():
     """System prompt includes user preferences when provided."""
     brain = AgentBrain(llm_provider=AsyncMock())
-    prompt = brain._build_system_prompt({"name": "Nahrin", "timezone": "EST"})
+    prompt = brain._build_system_prompt({"name": "Alice", "timezone": "EST"})
 
-    assert "Nahrin" in prompt
+    assert "Alice" in prompt
     assert "timezone" in prompt.lower() or "EST" in prompt

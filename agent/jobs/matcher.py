@@ -3,8 +3,7 @@ from __future__ import annotations
 """
 Job Matching Engine — scores jobs against the user's profile.
 
-This is ported from Navox's job-match API:
-  /Users/nahrin/reflexive.ai/src/app/api/job-match/route.ts
+Ported from the Navox job-matching API (navox.tech).
 
 The logic:
 1. Send the user's profile + job description to GPT-4o
