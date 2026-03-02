@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Calendar Tool — manage Google Calendar events.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 The Agent Brain — the core loop that makes this an autonomous agent.
 

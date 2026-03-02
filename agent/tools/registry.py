@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Tool Registry — manages all available tools.
 

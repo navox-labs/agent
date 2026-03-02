@@ -24,6 +24,8 @@ from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
 from agent.tools.email_tool import EmailTool
 from agent.tools.browser_tool import BrowserTool
 from agent.tools.calendar_tool import CalendarTool
+from agent.tools.profile_tool import ProfileTool
+from agent.profile.store import ProfileStore
 
 
 async def run_cli(brain: AgentBrain):
@@ -123,6 +125,14 @@ def main():
             credentials_path=credentials_path,
             token_path=token_path,
         ))
+
+    # Register profile tool (always available — stores data in the same DB)
+    profile_store = ProfileStore(db_path=db_path)
+    tools.register(ProfileTool(
+        profile_store=profile_store,
+        browser_tool=browser,
+        llm_provider=llm,
+    ))
 
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)

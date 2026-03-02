@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Example tools to validate the tool-calling pipeline.
 

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Abstract Tool interface — the plugin contract.
 

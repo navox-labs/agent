@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Browser Tool — navigate websites, search the web, and extract content.
 

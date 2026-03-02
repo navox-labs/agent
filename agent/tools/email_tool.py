@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Email Tool — read, search, and send emails via Gmail IMAP/SMTP.
 

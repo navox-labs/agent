@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Shared data models used across the agent.
 
