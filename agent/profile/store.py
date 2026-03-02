@@ -151,6 +151,27 @@ class ProfileStore:
             return json.loads(raw)
         return None
 
+    # ── LinkedIn Cookie ────────────────────────────────────────────
+
+    def set_linkedin_cookie(self, cookie: str):
+        """Store the user's LinkedIn li_at cookie for authenticated searches."""
+        self._set("linkedin_cookie", cookie)
+        logger.info("LinkedIn cookie stored")
+
+    def get_linkedin_cookie(self) -> str | None:
+        """Get the stored LinkedIn li_at cookie."""
+        return self._get("linkedin_cookie")
+
+    def clear_linkedin_cookie(self):
+        """Remove the stored LinkedIn cookie."""
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute("DELETE FROM profile WHERE key = 'linkedin_cookie'")
+            conn.commit()
+        finally:
+            conn.close()
+        logger.info("LinkedIn cookie cleared")
+
     async def get_full_context(self) -> dict:
         """
         Get everything the LLM needs to know about the user.

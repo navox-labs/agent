@@ -37,6 +37,9 @@ def format_match_result(job: dict, index: int = 1) -> str:
     missing = job.get("missing_skills", [])
     gap = job.get("gap_analysis", "")
     connection = job.get("connection_name", "")
+    connection_rel = job.get("connection_relation", "")
+    hiring_mgr = job.get("hiring_manager_name", "")
+    hiring_email = job.get("hiring_manager_email", "")
     url = job.get("url", "")
 
     lines = [
@@ -51,7 +54,19 @@ def format_match_result(job: dict, index: int = 1) -> str:
     if missing:
         lines.append(f"   Gap: {', '.join(missing[:4])}")
     if connection:
-        lines.append(f"   Connection: {connection}")
+        conn_text = f"   \U0001f91d Connection: {connection}"
+        if connection_rel:
+            conn_text += f" ({connection_rel})"
+        lines.append(conn_text)
+    elif connection_rel:
+        lines.append(f"   \U0001f91d {connection_rel} connection at {company}")
+    if hiring_mgr:
+        mgr_text = f"   \U0001f4e7 Recruiter: {hiring_mgr}"
+        if hiring_email:
+            mgr_text += f" ({hiring_email})"
+        lines.append(mgr_text)
+    elif hiring_email:
+        lines.append(f"   \U0001f4e7 Recruiter: {hiring_email}")
     if url:
         lines.append(f"   <a href=\"{url}\">View posting</a>")
 
@@ -80,7 +95,7 @@ def format_profile_preview(profile_text: str) -> str:
 
     return (
         "Here's what I extracted from your profile:\n\n"
-        f"<pre>{_escape_html(preview)}</pre>\n\n"
+        f"{_escape_html(preview)}\n\n"
         "Is this correct? Tell me what roles you're looking for, "
         "or send another file to update your profile."
     )
@@ -103,6 +118,8 @@ def format_help_message() -> str:
         "/start \u2014 Set up your profile\n"
         "/profile \u2014 View your current profile\n"
         "/match \u2014 Search for job matches\n"
+        "/connect_linkedin \u2014 Connect LinkedIn for connection-filtered jobs\n"
+        "/disconnect_linkedin \u2014 Remove LinkedIn connection\n"
         "/help \u2014 Show this help message\n\n"
         "<b>Profile setup options:</b>\n"
         "\u2022 Send a <b>resume PDF</b> \u2014 I'll extract your skills and experience\n"

@@ -56,6 +56,8 @@ class JobStore:
                     resume_tailoring TEXT,
                     connection_name TEXT,
                     connection_relation TEXT,
+                    hiring_manager_name TEXT,
+                    hiring_manager_email TEXT,
                     status TEXT DEFAULT 'new',
                     outreach_draft TEXT,
                     outreach_sent_at DATETIME,
@@ -84,6 +86,15 @@ class JobStore:
                 CREATE INDEX IF NOT EXISTS idx_scan_history_source
                     ON scan_history(source, scanned_at);
             """)
+            # Migrate: add hiring_manager columns to existing databases
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN hiring_manager_name TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+            try:
+                conn.execute("ALTER TABLE jobs ADD COLUMN hiring_manager_email TEXT")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
             conn.commit()
         finally:
             conn.close()
@@ -108,8 +119,9 @@ class JobStore:
                 """INSERT OR IGNORE INTO jobs
                    (job_id, title, company, location, url, description, source,
                     match_score, matched_skills, missing_skills, gap_analysis,
-                    resume_tailoring, connection_name, connection_relation)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    resume_tailoring, connection_name, connection_relation,
+                    hiring_manager_name, hiring_manager_email)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     job["job_id"],
                     job["title"],
@@ -125,6 +137,8 @@ class JobStore:
                     json.dumps(job.get("resume_tailoring")) if job.get("resume_tailoring") else None,
                     job.get("connection_name"),
                     job.get("connection_relation"),
+                    job.get("hiring_manager_name"),
+                    job.get("hiring_manager_email"),
                 ),
             )
             conn.commit()

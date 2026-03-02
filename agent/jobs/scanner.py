@@ -28,6 +28,7 @@ from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
+from agent.jobs.email_finder import extract_hiring_info
 from agent.jobs.linkedin_session import LinkedInSession
 from agent.jobs.matcher import JobMatcher
 from agent.jobs.store import JobStore
@@ -146,6 +147,10 @@ class JobScanner:
         """
         Search LinkedIn Jobs. Requires a logged-in LinkedIn session.
 
+        When a session is available, runs TWO searches:
+        1. 2nd-degree connection filter — jobs where you have connections
+        2. Unfiltered — all matching jobs
+
         Falls back to Google search if no LinkedIn session is available.
         """
         if not self._linkedin:
@@ -156,16 +161,43 @@ class JobScanner:
             # Check if session is still logged in
             logged_in = await self._linkedin.is_logged_in()
             if not logged_in:
-                logger.warning("LinkedIn session expired — run setup_linkedin_session.py to re-login")
+                logger.warning("LinkedIn session expired — reconnect via /connect_linkedin")
                 return await self._search_linkedin_via_google(keywords, location)
 
-            # Search LinkedIn Jobs directly
-            jobs = await self._linkedin.search_jobs(
+            all_jobs = []
+            seen_urls = set()
+
+            # Search 1: 2nd-degree connections (most actionable)
+            logger.info("Searching LinkedIn with 2nd-degree connection filter")
+            connection_jobs = await self._linkedin.search_jobs(
+                keywords=keywords,
+                location=location,
+                connection_filter="2nd",
+            )
+            for job in connection_jobs:
+                job.setdefault("connection_relation", "2nd degree")
+                url = job.get("url", "")
+                if url:
+                    seen_urls.add(url)
+                all_jobs.append(job)
+
+            # Search 2: All results (no filter)
+            logger.info("Searching LinkedIn (all results)")
+            general_jobs = await self._linkedin.search_jobs(
                 keywords=keywords,
                 location=location,
             )
+            for job in general_jobs:
+                url = job.get("url", "")
+                if url and url not in seen_urls:
+                    all_jobs.append(job)
+                    seen_urls.add(url)
 
-            return jobs
+            logger.info(
+                "LinkedIn scan: %d connection jobs + %d general = %d total",
+                len(connection_jobs), len(general_jobs), len(all_jobs),
+            )
+            return all_jobs
 
         except Exception as e:
             logger.error("LinkedIn scan failed: %s", e)
@@ -458,6 +490,16 @@ class JobScanner:
                     raw_job["resume_tailoring"] = analysis.resume_tailoring
                 except Exception as e:
                     logger.warning("Scoring failed for %s: %s", raw_job["title"], e)
+
+            # Extract hiring manager email if we have a name or can find one
+            if raw_job.get("hiring_manager_name") or raw_job.get("source") == "linkedin":
+                hiring_info = extract_hiring_info(
+                    hiring_manager_name=raw_job.get("hiring_manager_name"),
+                    company=raw_job.get("company", ""),
+                    job_url=raw_job.get("url", ""),
+                )
+                if hiring_info.get("hiring_manager_emails"):
+                    raw_job["hiring_manager_email"] = hiring_info["hiring_manager_emails"][0]
 
             # Store in database (dedup handled by INSERT OR IGNORE)
             is_new = await self._store.save_job(raw_job)

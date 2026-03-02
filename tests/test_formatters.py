@@ -68,6 +68,51 @@ def test_format_match_result_with_connection():
     assert "Sarah Chen" in result
 
 
+def test_format_match_result_with_connection_relation():
+    job = {
+        "title": "ML Engineer",
+        "company": "Cohere",
+        "match_score": 80,
+        "matched_skills": [],
+        "missing_skills": [],
+        "connection_name": "Sarah Chen",
+        "connection_relation": "2nd degree",
+    }
+    result = format_match_result(job)
+    assert "Sarah Chen" in result
+    assert "2nd degree" in result
+
+
+def test_format_match_result_with_hiring_manager():
+    job = {
+        "title": "ML Engineer",
+        "company": "Shopify",
+        "match_score": 85,
+        "matched_skills": [],
+        "missing_skills": [],
+        "hiring_manager_name": "John Doe",
+        "hiring_manager_email": "john.doe@shopify.com",
+    }
+    result = format_match_result(job)
+    assert "John Doe" in result
+    assert "john.doe@shopify.com" in result
+
+
+def test_format_match_result_connection_relation_only():
+    """When there's a relation but no specific name, show generic text."""
+    job = {
+        "title": "Data Scientist",
+        "company": "Meta",
+        "match_score": 70,
+        "matched_skills": [],
+        "missing_skills": [],
+        "connection_relation": "2nd degree",
+    }
+    result = format_match_result(job)
+    assert "2nd degree" in result
+    assert "Meta" in result
+
+
 def test_format_match_results_empty():
     result = format_match_results([])
     assert "No job matches found" in result
@@ -102,6 +147,7 @@ def test_format_help_message():
     assert "/start" in result
     assert "/profile" in result
     assert "/match" in result
+    assert "/connect_linkedin" in result
     assert "navox.tech" in result
 
 

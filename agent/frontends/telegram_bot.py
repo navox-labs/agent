@@ -71,6 +71,8 @@ class TelegramBot:
         self._sessions = session_manager
         self._rate_limiter = RateLimiter(max_per_user=rate_limit, window_seconds=3600)
         self._data_dir = session_manager._data_dir
+        # Track users who are in the middle of pasting their LinkedIn cookie
+        self._awaiting_cookie: set[str] = set()
 
     async def start(self):
         """Build and start the Telegram bot application."""
@@ -81,6 +83,8 @@ class TelegramBot:
         app.add_handler(CommandHandler("profile", self._handle_profile))
         app.add_handler(CommandHandler("match", self._handle_match))
         app.add_handler(CommandHandler("help", self._handle_help))
+        app.add_handler(CommandHandler("connect_linkedin", self._handle_connect_linkedin))
+        app.add_handler(CommandHandler("disconnect_linkedin", self._handle_disconnect_linkedin))
 
         # Document handler (PDF uploads)
         app.add_handler(MessageHandler(
@@ -177,6 +181,73 @@ class TelegramBot:
             parse_mode=ParseMode.HTML,
         )
 
+    # ── LinkedIn Connection ────────────────────────────────────────
+
+    async def _handle_connect_linkedin(self, update: Update, context) -> None:
+        """
+        /connect_linkedin — Start the LinkedIn authentication flow.
+
+        Sends instructions for getting the li_at cookie and waits
+        for the user to paste it.
+        """
+        user_id = str(update.effective_user.id)
+        self._awaiting_cookie.add(user_id)
+
+        await update.message.reply_text(
+            "To connect your LinkedIn account, I need your session cookie.\n\n"
+            "<b>How to get it:</b>\n"
+            "1. Open LinkedIn in Chrome/Firefox\n"
+            "2. Press F12 (or right-click and Inspect)\n"
+            "3. Go to Application tab (Chrome) or Storage tab (Firefox)\n"
+            "4. Click Cookies \u2192 linkedin.com\n"
+            "5. Find the cookie named <b>li_at</b>\n"
+            "6. Copy its Value and paste it here\n\n"
+            "This lets me search LinkedIn on your behalf and find jobs "
+            "where you have connections.\n\n"
+            "Send /cancel to abort.",
+            parse_mode=ParseMode.HTML,
+        )
+
+    async def _handle_disconnect_linkedin(self, update: Update, context) -> None:
+        """/disconnect_linkedin — Remove stored LinkedIn cookie."""
+        user_id = str(update.effective_user.id)
+        profile_store = self._sessions.get_profile_store(user_id)
+        if profile_store:
+            profile_store.clear_linkedin_cookie()
+        await update.message.reply_text(
+            "LinkedIn disconnected. Your cookie has been removed.\n"
+            "Job searches will fall back to Google results."
+        )
+
+    async def _handle_linkedin_cookie(self, update: Update, user_id: str, text: str) -> None:
+        """Process a pasted LinkedIn cookie."""
+        self._awaiting_cookie.discard(user_id)
+
+        if text.lower() == "/cancel":
+            await update.message.reply_text("LinkedIn connection cancelled.")
+            return
+
+        # Basic validation: li_at cookies are long alphanumeric strings
+        cookie = text.strip()
+        if len(cookie) < 50:
+            await update.message.reply_text(
+                "That doesn't look like a valid LinkedIn cookie. "
+                "The li_at value is usually 150+ characters long.\n\n"
+                "Try again with /connect_linkedin or send /cancel."
+            )
+            return
+
+        await update.message.chat.send_action(ChatAction.TYPING)
+
+        # Store and rebuild session
+        await self._sessions.reconnect_linkedin(user_id, cookie)
+
+        await update.message.reply_text(
+            "LinkedIn connected! I can now search for jobs where "
+            "you have 2nd-degree connections who can refer you.\n\n"
+            "Try /match to find connection-filtered jobs."
+        )
+
     # ── Message Handlers ──────────────────────────────────────────
 
     async def _handle_message(self, update: Update, context) -> None:
@@ -192,6 +263,11 @@ class TelegramBot:
         text = update.message.text.strip()
 
         if not text:
+            return
+
+        # Check if user is pasting a LinkedIn cookie
+        if user_id in self._awaiting_cookie:
+            await self._handle_linkedin_cookie(update, user_id, text)
             return
 
         # Rate limit check

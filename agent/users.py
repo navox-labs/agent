@@ -27,8 +27,11 @@ from agent.jobs.store import JobStore
 from agent.jobs.matcher import JobMatcher
 from agent.tools.registry import ToolRegistry
 from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
+from agent.tools.browser_tool import BrowserTool
 from agent.tools.profile_tool import ProfileTool
 from agent.tools.job_tool import JobTool
+from agent.jobs.linkedin_cookie_session import LinkedInCookieSession
+from agent.jobs.scanner import JobScanner
 
 logger = logging.getLogger(__name__)
 
@@ -113,19 +116,38 @@ class UserSessionManager:
         profile_store = ProfileStore(db_path=db_path)
         job_store = JobStore(db_path=db_path)
 
+        # Lazily create shared browser on first use
+        if self._browser is None:
+            self._browser = BrowserTool()
+
         # Per-user tool registry
         tools = ToolRegistry()
         tools.register(CurrentTimeTool())
         tools.register(CalculatorTool())
+        tools.register(self._browser)
         tools.register(ProfileTool(
             profile_store=profile_store,
             browser_tool=self._browser,
             llm_provider=self._llm,
         ))
 
-        # Job tools (without scanner — Telegram users get on-demand matching only)
+        # Check for LinkedIn cookie → create authenticated session
+        linkedin_session = None
+        linkedin_cookie = profile_store.get_linkedin_cookie()
+        if linkedin_cookie:
+            linkedin_session = LinkedInCookieSession(cookie=linkedin_cookie)
+            logger.info("LinkedIn cookie found for user %s — session will be created", user_id)
+
+        # Job tools with scanner for real job searching
         job_matcher = JobMatcher(llm_provider=self._llm)
-        tools.register(JobTool(scanner=None, job_store=job_store))
+        scanner = JobScanner(
+            job_store=job_store,
+            job_matcher=job_matcher,
+            profile_store=profile_store,
+            linkedin_session=linkedin_session,
+            browser_tool=self._browser,
+        )
+        tools.register(JobTool(scanner=scanner, job_store=job_store))
 
         # Brain
         brain = AgentBrain(llm_provider=self._llm, memory=memory, tools=tools)
@@ -144,6 +166,25 @@ class UserSessionManager:
         """Get a user's ProfileStore if they have an active session."""
         session = self._sessions.get(user_id)
         return session["profile_store"] if session else None
+
+    async def reconnect_linkedin(self, user_id: str, cookie: str):
+        """
+        Store a LinkedIn cookie and rebuild the user's session
+        so the scanner gets a LinkedIn session.
+        """
+        session = self._sessions.get(user_id)
+        if not session:
+            return
+
+        # Store cookie
+        session["profile_store"].set_linkedin_cookie(cookie)
+
+        # Evict the cached session so it's rebuilt with the LinkedIn session
+        async with self._lock:
+            if user_id in self._sessions:
+                del self._sessions[user_id]
+
+        logger.info("LinkedIn reconnect for user %s — session will rebuild on next message", user_id)
 
     def get_job_matcher(self, user_id: str) -> JobMatcher | None:
         """Get a user's JobMatcher if they have an active session."""
