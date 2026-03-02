@@ -42,6 +42,11 @@ class Config:
         # LinkedIn session (persistent browser data directory)
         self.linkedin_session_dir = os.getenv("LINKEDIN_SESSION_DIR", "data/linkedin_session")
 
+        # Telegram bot (Phase 13)
+        self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+        self.telegram_rate_limit = int(os.getenv("TELEGRAM_RATE_LIMIT", "20"))
+        self.telegram_max_users_cached = int(os.getenv("TELEGRAM_MAX_USERS_CACHED", "100"))
+
     def validate(self):
         """Check that required config values are present."""
         missing = []

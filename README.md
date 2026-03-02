@@ -4,7 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9+-green.svg)](https://python.org)
-[![Tests](https://img.shields.io/badge/Tests-57%20passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-97%20passing-brightgreen.svg)](tests/)
+[![Telegram Bot](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)](https://t.me/navox_agent_bot)
 
 Built by [Navox Labs](https://navox.tech) — uses your [Navox profileCard](https://navox.tech) for smart job matching and outreach.
 
@@ -203,9 +204,10 @@ python scripts/setup_google_oauth.py
 ## Run Modes
 
 ```bash
-python main.py                # Interactive CLI (default)
-python main.py --mode daemon  # Background scheduler only
-python main.py --mode both    # CLI + scheduler in parallel
+python main.py                   # Interactive CLI (default)
+python main.py --mode daemon     # Background scheduler only
+python main.py --mode both       # CLI + scheduler in parallel
+python main.py --mode telegram   # Telegram bot (multi-user, public)
 ```
 
 | Mode | What it does |
@@ -213,6 +215,7 @@ python main.py --mode both    # CLI + scheduler in parallel
 | **cli** | Chat with the agent interactively. Search jobs, review matches, draft outreach. |
 | **daemon** | Fully autonomous. Scans every 4h, checks responses every 30min, emails you summaries. |
 | **both** | Best of both — background automation + interactive chat simultaneously. |
+| **telegram** | Public Telegram bot. Anyone can upload a resume and get job matches in 60 seconds. Each user gets isolated data. |
 
 ---
 
@@ -240,13 +243,15 @@ agent/
 ├── config.py              # Environment config loader
 ├── models.py              # Shared data models
 ├── scheduler.py           # Autonomous background scheduler
+├── users.py               # Multi-user session manager (Telegram)
 ├── llm/
 │   ├── base.py            # LLM provider interface
 │   └── openai_provider.py # OpenAI GPT-4o implementation
 ├── memory/
 │   └── store.py           # SQLite persistent memory
 ├── profile/
-│   └── store.py           # User profile storage
+│   ├── store.py           # User profile storage
+│   └── extract.py         # PDF/URL profile extraction helpers
 ├── jobs/
 │   ├── scanner.py         # Multi-source job scanner
 │   ├── matcher.py         # Job-profile matching engine
@@ -263,7 +268,10 @@ agent/
 │   ├── job_tool.py        # Job search + pipeline
 │   └── outreach_tool.py   # Outreach drafting + sending
 └── frontends/
-    └── cli.py             # Terminal chat interface
+    ├── cli.py             # Terminal chat interface
+    ├── telegram_bot.py    # Telegram bot (multi-user, public)
+    ├── rate_limiter.py    # Per-user rate limiting
+    └── formatters.py      # Telegram message formatting
 ```
 
 ---
@@ -272,7 +280,7 @@ agent/
 
 ```bash
 source .venv/bin/activate
-pytest           # 57 tests, runs in <1 second
+pytest           # 97 tests, runs in <2 seconds
 pytest -v        # Verbose output
 ```
 

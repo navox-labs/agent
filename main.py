@@ -4,18 +4,21 @@ from __future__ import annotations
 """
 Main entry point for the Personal AI Agent.
 
-Three modes of operation:
-    python main.py              # Interactive CLI (default)
-    python main.py --mode cli   # Interactive CLI
-    python main.py --mode daemon # Background scheduler only
-    python main.py --mode both   # CLI + scheduler in parallel
+Four modes of operation:
+    python main.py                  # Interactive CLI (default)
+    python main.py --mode cli       # Interactive CLI
+    python main.py --mode daemon    # Background scheduler only
+    python main.py --mode both      # CLI + scheduler in parallel
+    python main.py --mode telegram  # Telegram bot (multi-user, public)
 
 The daemon mode runs the agent autonomously — it scans for jobs,
 drafts outreach, checks for responses, and notifies you via email.
-No user input needed.
 
 The 'both' mode gives you the best of both worlds: interactive chat
 plus background automation running simultaneously.
+
+The 'telegram' mode runs a public Telegram bot that anyone can use.
+Each user gets their own isolated profile, memory, and job pipeline.
 """
 
 import argparse
@@ -231,13 +234,55 @@ async def run_both_mode(brain: AgentBrain, scheduler: AgentScheduler):
             pass
 
 
+async def run_telegram_mode(config: Config):
+    """
+    Run the Telegram bot frontend (multi-user, public).
+
+    This bypasses build_components() (which is single-user) and uses
+    UserSessionManager to create per-user Brain instances on demand.
+    """
+    from agent.users import UserSessionManager
+    from agent.frontends.telegram_bot import TelegramBot
+
+    if not config.telegram_bot_token:
+        raise ValueError(
+            "TELEGRAM_BOT_TOKEN not set in .env.\n"
+            "Get a bot token from @BotFather on Telegram."
+        )
+
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(project_root, "data", "users")
+    os.makedirs(data_dir, exist_ok=True)
+
+    print("=" * 60)
+    print("  Navox Agent — Telegram Bot Mode")
+    print("  Running as a public Telegram bot.")
+    print("  Press Ctrl+C to stop.")
+    print("=" * 60)
+    print()
+
+    session_manager = UserSessionManager(
+        config=config,
+        data_dir=data_dir,
+        max_cached=config.telegram_max_users_cached,
+    )
+
+    bot = TelegramBot(
+        token=config.telegram_bot_token,
+        session_manager=session_manager,
+        rate_limit=config.telegram_rate_limit,
+    )
+
+    await bot.start()
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Personal AI Agent")
+    parser = argparse.ArgumentParser(description="Navox Agent")
     parser.add_argument(
         "--mode",
-        choices=["cli", "daemon", "both"],
+        choices=["cli", "daemon", "both", "telegram"],
         default="cli",
-        help="Run mode: cli (interactive), daemon (background), both (cli + daemon)",
+        help="Run mode: cli (interactive), daemon (background), both (cli + daemon), telegram (public bot)",
     )
     args = parser.parse_args()
 
@@ -250,6 +295,16 @@ def main():
     # Load config and build components
     config = Config()
     config.validate()
+
+    # Telegram mode uses its own component wiring (UserSessionManager)
+    if args.mode == "telegram":
+        try:
+            asyncio.run(run_telegram_mode(config))
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+        return
+
+    # All other modes use the single-user component graph
     components = build_components(config)
 
     brain = components["brain"]

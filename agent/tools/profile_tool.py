@@ -19,6 +19,7 @@ import os
 
 from agent.tools.base import Tool, ToolParameter, ToolResult
 from agent.profile.store import ProfileStore
+from agent.profile.extract import extract_file_text, extract_profile_from_url
 from agent.jobs.matcher import JobMatcher
 
 logger = logging.getLogger(__name__)
@@ -133,50 +134,14 @@ class ProfileTool(Tool):
                 error="Browser tool not available. Cannot fetch profileCard URL.",
             )
 
-        # Normalize URL — add https:// if missing
+        try:
+            profile_text = await extract_profile_from_url(url, self._browser, self._llm)
+        except RuntimeError as e:
+            return ToolResult(success=False, data=None, error=str(e))
+
+        # Normalize URL for storage
         if not url.startswith("http"):
             url = f"https://{url}"
-
-        # Navigate to the profileCard page
-        nav_result = await self._browser.execute(action="navigate", url=url)
-        if not nav_result.success:
-            return ToolResult(
-                success=False,
-                data=None,
-                error=f"Failed to fetch profileCard: {nav_result.error}",
-            )
-
-        page_text = nav_result.data.get("text", "") if isinstance(nav_result.data, dict) else str(nav_result.data)
-
-        if not page_text or len(page_text.strip()) < 50:
-            return ToolResult(
-                success=False,
-                data=None,
-                error="ProfileCard page returned too little text. The page may not have loaded correctly.",
-            )
-
-        # If we have an LLM, use it to clean up the extracted text into a structured profile
-        if self._llm:
-            try:
-                response = await self._llm.generate(
-                    system=(
-                        "You are a profile data extractor. Extract professional profile "
-                        "information from raw web page text. Return a clean, structured "
-                        "summary including: name, title/position, location, bio, skills, "
-                        "experience, education, and any other relevant professional details. "
-                        "Keep it concise but comprehensive."
-                    ),
-                    messages=[{
-                        "role": "user",
-                        "content": f"Extract the professional profile from this page text:\n\n{page_text[:5000]}",
-                    }],
-                )
-                profile_text = response.text
-            except Exception as e:
-                logger.warning("LLM extraction failed, using raw text: %s", e)
-                profile_text = page_text
-        else:
-            profile_text = page_text
 
         # Store the profile text and card URL
         await self._store.set_profile_from_text(profile_text)
@@ -192,59 +157,19 @@ class ProfileTool(Tool):
         )
 
     async def _set_profile_from_file(self, file_path: str) -> ToolResult:
-        """Extract text from a resume PDF and store it."""
-        if not os.path.exists(file_path):
+        """Extract text from a resume PDF or text file and store it."""
+        try:
+            profile_text = extract_file_text(file_path)
+        except (FileNotFoundError, ValueError, ImportError) as e:
+            return ToolResult(success=False, data=None, error=str(e))
+        except Exception as e:
+            return ToolResult(success=False, data=None, error=f"Failed to read file: {e}")
+
+        if not profile_text.strip():
             return ToolResult(
                 success=False,
                 data=None,
-                error=f"File not found: {file_path}",
-            )
-
-        ext = os.path.splitext(file_path)[1].lower()
-
-        if ext == ".pdf":
-            try:
-                import PyPDF2
-            except ImportError:
-                return ToolResult(
-                    success=False,
-                    data=None,
-                    error="PyPDF2 is not installed. Run: pip install PyPDF2",
-                )
-
-            try:
-                text_parts = []
-                with open(file_path, "rb") as f:
-                    reader = PyPDF2.PdfReader(f)
-                    for page in reader.pages:
-                        page_text = page.extract_text()
-                        if page_text:
-                            text_parts.append(page_text)
-
-                profile_text = "\n".join(text_parts)
-
-                if not profile_text.strip():
-                    return ToolResult(
-                        success=False,
-                        data=None,
-                        error="Could not extract text from PDF. The file may be image-based.",
-                    )
-
-            except Exception as e:
-                return ToolResult(
-                    success=False,
-                    data=None,
-                    error=f"Failed to read PDF: {e}",
-                )
-
-        elif ext == ".txt":
-            with open(file_path, "r") as f:
-                profile_text = f.read()
-        else:
-            return ToolResult(
-                success=False,
-                data=None,
-                error=f"Unsupported file type: {ext}. Use .pdf or .txt",
+                error="Could not extract text from file. The file may be image-based or empty.",
             )
 
         # Store profile text and file path
@@ -255,7 +180,6 @@ class ProfileTool(Tool):
             success=True,
             data={
                 "message": f"Profile loaded from {os.path.basename(file_path)}",
-                "pages": len(text_parts) if ext == ".pdf" else 1,
                 "length": len(profile_text),
                 "profile_preview": profile_text[:300] + "..." if len(profile_text) > 300 else profile_text,
             },
