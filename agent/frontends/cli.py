@@ -22,6 +22,7 @@ from agent.memory.store import MemoryStore
 from agent.tools.registry import ToolRegistry
 from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
 from agent.tools.email_tool import EmailTool
+from agent.tools.browser_tool import BrowserTool
 
 
 async def run_cli(brain: AgentBrain):
@@ -109,14 +110,22 @@ def main():
             smtp_port=config.smtp_port,
         ))
 
+    # Register the browser tool (lazy — only starts Chromium when first used)
+    browser = BrowserTool()
+    tools.register(browser)
+
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)
 
     # Give this session a unique ID so messages are grouped together
     brain.session_id = MemoryStore.new_session_id()
 
-    # Start the CLI
-    asyncio.run(run_cli(brain))
+    # Start the CLI (and clean up browser on exit)
+    try:
+        asyncio.run(run_cli(brain))
+    finally:
+        # Shut down the headless browser if it was started
+        asyncio.run(browser.cleanup())
 
 
 # This allows running with: python -m agent.frontends.cli
