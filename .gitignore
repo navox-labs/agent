@@ -12,9 +12,10 @@ __pycache__/
 venv/
 env/
 
-# Data files (local databases, tokens)
+# Data files (local databases, tokens, screenshots)
 data/*.db
 data/*.json
+data/screenshots/
 
 # IDE
 .vscode/

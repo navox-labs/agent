@@ -35,6 +35,10 @@ class Config:
         self.smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
 
+        # Google Calendar (OAuth2 — file paths, not env secrets)
+        self.google_credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "data/google_credentials.json")
+        self.google_token_path = os.getenv("GOOGLE_TOKEN_PATH", "data/google_token.json")
+
     def validate(self):
         """Check that required config values are present."""
         missing = []

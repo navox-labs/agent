@@ -23,6 +23,7 @@ from agent.tools.registry import ToolRegistry
 from agent.tools.example_tools import CurrentTimeTool, CalculatorTool
 from agent.tools.email_tool import EmailTool
 from agent.tools.browser_tool import BrowserTool
+from agent.tools.calendar_tool import CalendarTool
 
 
 async def run_cli(brain: AgentBrain):
@@ -113,6 +114,15 @@ def main():
     # Register the browser tool (lazy — only starts Chromium when first used)
     browser = BrowserTool()
     tools.register(browser)
+
+    # Register calendar tool only if OAuth token exists (run setup script first)
+    credentials_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), config.google_credentials_path)
+    token_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), config.google_token_path)
+    if os.path.exists(token_path):
+        tools.register(CalendarTool(
+            credentials_path=credentials_path,
+            token_path=token_path,
+        ))
 
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)

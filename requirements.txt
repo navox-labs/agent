@@ -5,3 +5,8 @@ python-dotenv>=1.0.0
 # Phase 5: Web browsing
 playwright>=1.40.0
 beautifulsoup4>=4.12.0
+
+# Phase 6: Google Calendar
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
