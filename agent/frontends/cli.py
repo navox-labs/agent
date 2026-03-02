@@ -25,7 +25,12 @@ from agent.tools.email_tool import EmailTool
 from agent.tools.browser_tool import BrowserTool
 from agent.tools.calendar_tool import CalendarTool
 from agent.tools.profile_tool import ProfileTool
+from agent.tools.job_tool import JobTool
 from agent.profile.store import ProfileStore
+from agent.jobs.store import JobStore
+from agent.jobs.matcher import JobMatcher
+from agent.jobs.scanner import JobScanner
+from agent.jobs.linkedin_session import LinkedInSession
 
 
 async def run_cli(brain: AgentBrain):
@@ -133,6 +138,31 @@ def main():
         browser_tool=browser,
         llm_provider=llm,
     ))
+
+    # Register job discovery tool with multi-source scanner
+    job_store = JobStore(db_path=db_path)
+    job_matcher = JobMatcher(llm_provider=llm)
+
+    # LinkedIn session — only available if the session directory exists
+    # (run scripts/setup_linkedin_session.py first)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    linkedin_session_dir = os.path.join(project_root, config.linkedin_session_dir)
+    linkedin_session = None
+    if os.path.exists(linkedin_session_dir):
+        linkedin_session = LinkedInSession(session_dir=linkedin_session_dir)
+
+    # Get reference to email tool if registered
+    email_tool = tools.get("email")
+
+    scanner = JobScanner(
+        job_store=job_store,
+        job_matcher=job_matcher,
+        profile_store=profile_store,
+        linkedin_session=linkedin_session,
+        browser_tool=browser,
+        email_tool=email_tool,
+    )
+    tools.register(JobTool(scanner=scanner, job_store=job_store))
 
     # Create the agent brain with memory and tools
     brain = AgentBrain(llm_provider=llm, memory=memory, tools=tools)

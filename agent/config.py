@@ -39,6 +39,9 @@ class Config:
         self.google_credentials_path = os.getenv("GOOGLE_CREDENTIALS_PATH", "data/google_credentials.json")
         self.google_token_path = os.getenv("GOOGLE_TOKEN_PATH", "data/google_token.json")
 
+        # LinkedIn session (persistent browser data directory)
+        self.linkedin_session_dir = os.getenv("LINKEDIN_SESSION_DIR", "data/linkedin_session")
+
     def validate(self):
         """Check that required config values are present."""
         missing = []

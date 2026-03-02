@@ -16,6 +16,7 @@ env/
 data/*.db
 data/*.json
 data/screenshots/
+data/linkedin_session/
 
 # IDE
 .vscode/
